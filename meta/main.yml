@@ -1,6 +1,5 @@
 galaxy_info:
   author: Gilian GAMBINI
-  role_name: simple-firewalld-ansible-role
   description: Set up minimal firewalld configuration 
   license: GNU Affero General Public License v3.0
   company: DSI CNRS
