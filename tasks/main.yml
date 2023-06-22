@@ -1,0 +1,54 @@
+# firewalld service
+#TODO: ensure firewalld service is enabled and started
+#maybe add a bool to disable ? example firewalld_present|default(true) ?
+
+# INPUT policy
+- name: If needed, ensure /etc/firewalld/policies/{{ firewalld_input_policy_file }} is present
+  template:
+    src: custom_input_policy.xml.j2
+    dest: "/etc/firewalld/policies/{{ firewalld_input_policy_file }}"
+    owner: "root"
+    group: "root"
+    mode: 0644
+  notify: reload firewalld
+  when: firewalld_enable|bool
+
+- name: Remove input policy if needed
+  file:
+    path: "/etc/firewalld/policies/{{ firewalld_input_policy_file }}"
+    state: absent
+  notify: reload firewalld
+  when: not firewalld_enable|bool
+
+# OUTPUT policy
+- name: If needed, ensure /etc/firewalld/policies/{{ firewalld_output_policy_file }} is present
+  template:
+    src: custom_output_policy.xml.j2
+    dest: "/etc/firewalld/policies/{{ firewalld_output_policy_file }}"
+    owner: "root"
+    group: "root"
+    mode: 0644
+  notify: reload firewalld
+  when: firewalld_enable|bool and not firewalld_input_only|bool
+
+- name: Remove output policy if needed
+  file:
+    path: "/etc/firewalld/policies/{{ firewalld_output_policy_file }}"
+    state: absent
+  notify: reload firewalld
+  when: not firewalld_enable|bool or firewalld_input_only|bool
+
+# MAIN config
+- name: Patch main config file firewalld.conf
+  replace:
+    path: /etc/firewalld/firewalld.conf
+    regexp: "^(LogDenied=).*$"
+    replace: "LogDenied={% if firewalld_logdenied_all|bool %}all{% else %}off{% endif %}"
+  notify: reload firewalld
+
+# Safer check config at every run because we put policies on the top of an potential existing config
+- name: Check firewalld configuration
+  command: /usr/bin/firewall-cmd --check-config
+  register: check_config
+  changed_when: False
+  failed_when: check_config.rc > 0

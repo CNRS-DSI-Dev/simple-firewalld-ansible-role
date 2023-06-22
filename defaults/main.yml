@@ -1,0 +1,16 @@
+# firewalld default variables
+## commons
+firewalld_enable: false # enable/disable local zerotrust
+firewalld_input_only: false # only filtering input traffic
+firewalld_input_dry: false # enable/disable dry mode, if true dont reject packet but audit them
+firewalld_output_dry: true #TODO: change default value to false when EL8 bug was fixed
+firewalld_input_policy_file: custom_input.xml # The file name has to be policy_name.xml where length of policy_name is currently limited to 17 chars
+firewalld_output_policy_file: custom_output.xml # Source https://firewalld.org/documentation/man-pages/firewalld.policy.html 
+## auditing
+firewalld_logdenied_all: false #enable/disable log all denied, default is false
+firewalld_input_accept_prefix: 'firewalld.input:ACCEPT'
+firewalld_input_reject_prefix: 'firewalld.input:REJECT'
+firewalld_input_dry_prefix: 'firewalld.input:AUDIT'
+firewalld_output_accept_prefix: 'firewalld.output:ACCEPT'
+firewalld_output_reject_prefix: 'firewalld.output:REJECT'
+firewalld_output_dry_prefix: 'firewalld.output:AUDIT'

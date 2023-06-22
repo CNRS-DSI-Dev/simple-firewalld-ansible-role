@@ -1,0 +1,82 @@
+{% macro build_rule(rule, ip, accept) %}
+  <rule family="ipv4"{% if not accept %} priority="1000"{% endif %}>
+{%   if ip %}
+    <destination address="{{ ip }}"/>
+{%   endif %}
+{%   if rule.service|default(false) %}
+    <service name="{{ rule.service }}"/>
+{%   elif rule.port|default(false) %}
+    <port port="{{ rule.port }}" protocol="{{ rule.proto|default('tcp') }}"/>
+{%   else %}
+    <protocol value="{{ rule.proto|default('icmp') }}"/>
+{%   endif %}
+{%   if rule.audit_accept|default(false) and accept %}
+    <log prefix="{{ firewalld_output_accept_prefix }} "/>
+{%   elif rule.audit_reject|default(true) and not accept %}
+    <log prefix="{% if firewalld_output_dry|bool %}{{ firewalld_output_dry_prefix }}{% else %}{{ firewalld_output_reject_prefix }}{% endif %} "/>
+{%   endif %}
+{%   if accept %}
+    <accept/>
+{%   endif %}
+  </rule>
+{%- endmacro %}
+{% macro accept_rules(rule) %}
+{%   if rule.desc is defined %}
+  <!-- {{ rule.desc }} -->
+{%   endif %}
+{%   if rule.ip is defined %}{% for ip in rule.ip %}
+{{     build_rule(rule, ip, true) }}
+{%   endfor %}{% else %}
+{{     build_rule(rule, false, true) }}
+{%   endif %}
+{% endmacro %}
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 
+  Custom OUTPUT policy
+    - ansible managed (dont modify directly)
+    - match all output traffic (ingress HOST, egress ANY)
+    - override zone or direct rules (negative policy priority)
+    - reject all traffic by default (target reject, except if dry mode enabled)
+-->
+<policy target="{% if firewalld_output_dry|bool %}CONTINUE{% else %}REJECT{% endif %}" priority="-100">
+  <short>Custom OUTPUT policy</short>
+  <description>Custom OUTPUT policy reject all traffic on all interfaces by default</description>
+  <ingress-zone name="HOST"/>
+  <egress-zone name="ANY"/>
+
+{% if firewalld_common_output_rules is defined %}
+  <!--
+    Common rules
+      - see firewalld_common_output_rules variable
+  -->
+{%   for rule in firewalld_common_output_rules %}
+{{     accept_rules(rule) }}
+{%   endfor -%}
+{% endif %}
+
+{% if firewalld_role_output_rules is defined %}
+  <!-- 
+    Role server rules
+      - see firewalld_role_output_rules variable in inventory
+  -->
+{%   for rule in firewalld_role_output_rules %}
+{{     accept_rules(rule) }}
+{%   endfor -%}
+{% endif %}
+
+  <!-- 
+    Optionnal audit rules
+      - for each service accepted in this policy, if source unauthorized, denied is audited
+      - dont audit other denied except if firewalld_logdenied_all variable set to true
+  -->
+{% if firewalld_common_output_rules is defined %}
+{%   for rule in firewalld_common_output_rules if rule.audit_reject|default(true)|bool %}
+{{     build_rule(rule, false, false) }}
+{%   endfor %}
+{% endif %}
+{% if firewalld_role_output_rules is defined %}
+{%   for rule in firewalld_role_output_rules if rule.audit_reject|default(true)|bool %}
+{{     build_rule(rule, false, false) }}
+{%   endfor %}
+{% endif %}
+</policy>
